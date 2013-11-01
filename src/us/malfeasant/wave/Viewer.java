@@ -2,8 +2,10 @@ package us.malfeasant.wave;
 
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
 import javax.swing.ButtonGroup;
@@ -19,6 +21,8 @@ public class Viewer extends JPanel {
 	private static final long serialVersionUID = 1L;
 	
 	private static final int SAMPLES_PER_FRAME = 1152;
+	private static final int RANGE = 256;
+	private static final double TAU = Math.PI * 2.0;
 	
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(new Runnable() {
@@ -53,10 +57,10 @@ public class Viewer extends JPanel {
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					if (v.rate != sr) {
-						v.image = null;
+						v.rate = sr;
+						v.xform = null;
+						v.repaint();
 					}
-					v.rate = sr;
-					v.repaint();
 				}
 			});
 			if (v.rate == sr) item.setSelected(true);
@@ -66,34 +70,47 @@ public class Viewer extends JPanel {
 		bar.add(fileMenu);
 		bar.add(rateMenu);
 		frame.setJMenuBar(bar);
+		frame.pack();
 		frame.setVisible(true);
 	}
 	
 	private SampleRate rate = SampleRate.SP;
-	private BufferedImage image;
+	private final BufferedImage image;
+	private AffineTransform xform;
 	
 	private Viewer() {
-		
+		image = new BufferedImage(SAMPLES_PER_FRAME, RANGE, BufferedImage.TYPE_BYTE_GRAY);
 	}
 	
 	@Override
 	protected void paintComponent(Graphics g) {
+		super.paintComponent(g);
 		Graphics2D g2 = (Graphics2D) g;
-		if (image == null) {
-			image = render(rate);
+		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		image.createGraphics().clearRect(0, 0, SAMPLES_PER_FRAME, RANGE);
+		xform = new AffineTransform();
+		xform.scale(getWidth() / (double)SAMPLES_PER_FRAME, getHeight() / (double)RANGE);
+		for (int x = 0; x < SAMPLES_PER_FRAME; x++) {
+			int y = doSin(x, SAMPLES_PER_FRAME, 0.75f);
+			image.setRGB(x, y, 0xffffff);
 		}
-		g2.drawImage(image, 0, 0, null);
+		g2.drawRenderedImage(image, xform);
 	}
 	
 	private void save() {
-		// TODO
 		System.out.println("save...");
-	}
-	private BufferedImage render(SampleRate sr) {
-		BufferedImage img = new BufferedImage(SAMPLES_PER_FRAME, 256, BufferedImage.TYPE_BYTE_GRAY);
-		int rate = sr.SAMPLES_PER_SECOND;
-		
 		// TODO
-		return img;
+	}
+	private static int doSin(int x, float scale, float amp) {
+		double rad = (x / scale) * TAU;
+		double y = Math.sin(rad) * amp;	// -1 <= y <= 1
+//		System.out.print(y + "\t");
+		y *= 0.5;	// -0.5 <= y <= 0.5
+//		System.out.print(y + "\t");
+		y += 0.5;	// 0 <= y <= 1
+//		System.out.print(y + "\t");
+		y *= (RANGE - 1);	// 0 <= y < RANGE
+//		System.out.println(y);
+		return (int)y;
 	}
 }
