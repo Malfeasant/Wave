@@ -1,5 +1,6 @@
 package us.malfeasant.wave;
 
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -19,9 +20,9 @@ import javax.swing.SwingUtilities;
 
 public class Viewer extends JPanel {
 	private static final long serialVersionUID = 1L;
-	
 	private static final int SAMPLES_PER_FRAME = 1152;
 	private static final int RANGE = 256;
+	private static final Dimension PREFSIZE = new Dimension(SAMPLES_PER_FRAME, RANGE);
 	private static final double TAU = Math.PI * 2.0;
 	
 	public static void main(String[] args) {
@@ -58,7 +59,7 @@ public class Viewer extends JPanel {
 				public void actionPerformed(ActionEvent e) {
 					if (v.rate != sr) {
 						v.rate = sr;
-						v.xform = null;
+						v.render();
 						v.repaint();
 					}
 				}
@@ -72,11 +73,11 @@ public class Viewer extends JPanel {
 		frame.setJMenuBar(bar);
 		frame.pack();
 		frame.setVisible(true);
+		((JRadioButtonMenuItem)(rateMenu.getMenuComponent(2))).doClick();
 	}
 	
-	private SampleRate rate = SampleRate.SP;
+	private SampleRate rate;
 	private final BufferedImage image;
-	private AffineTransform xform;
 	
 	private Viewer() {
 		image = new BufferedImage(SAMPLES_PER_FRAME, RANGE, BufferedImage.TYPE_BYTE_GRAY);
@@ -86,17 +87,19 @@ public class Viewer extends JPanel {
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		Graphics2D g2 = (Graphics2D) g;
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		image.createGraphics().clearRect(0, 0, SAMPLES_PER_FRAME, RANGE);
-		xform = new AffineTransform();
+		g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+		AffineTransform xform = new AffineTransform();
 		xform.scale(getWidth() / (double)SAMPLES_PER_FRAME, getHeight() / (double)RANGE);
-		for (int x = 0; x < SAMPLES_PER_FRAME; x++) {
-			int y = doSin(x, SAMPLES_PER_FRAME, 0.75f);
-			image.setRGB(x, y, 0xffffff);
-		}
 		g2.drawRenderedImage(image, xform);
 	}
-	
+	private void render() {
+		image.createGraphics().clearRect(0, 0, SAMPLES_PER_FRAME, RANGE);
+		float scale = (float)rate.SAMPLES_PER_SECOND / SAMPLES_PER_FRAME;
+		for (int x = 0; x < SAMPLES_PER_FRAME; x++) {
+			int y = doSin(x, scale, 1.0f);
+			image.setRGB(x, y, 0xffffff);
+		}
+	}
 	private void save() {
 		System.out.println("save...");
 		// TODO
@@ -112,5 +115,10 @@ public class Viewer extends JPanel {
 		y *= (RANGE - 1);	// 0 <= y < RANGE
 //		System.out.println(y);
 		return (int)y;
+	}
+
+	@Override
+	public Dimension getPreferredSize() {
+		return PREFSIZE;
 	}
 }
